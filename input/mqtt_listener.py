@@ -63,6 +63,7 @@ def on_message(client, userdata, msg):
         log.warning(f"Missing 'value' in payload: {payload}")
         return
 
+    global conn
     try:
         with conn.cursor() as cur:
             cur.execute(
@@ -72,8 +73,6 @@ def on_message(client, userdata, msg):
         log.info(f"Inserted → device={device_id} metric={metric} value={value}")
     except Exception as e:
         log.error(f"DB insert error: {e}")
-        # Attempt reconnect
-        global conn
         conn = connect_db()
 
 def on_connect(client, userdata, flags, rc):
