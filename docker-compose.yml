@@ -1,0 +1,59 @@
+services:
+
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    environment:
+      POSTGRES_DB:       iot
+      POSTGRES_USER:     iot
+      POSTGRES_PASSWORD: iot
+    volumes:
+      - timescale_data:/var/lib/postgresql/data
+      - ./source/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U iot -d iot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
+    ports:
+      - "1883:1883"
+
+  listener:
+    build: ./input
+    environment:
+      MQTT_BROKER:   mosquitto
+      MQTT_TOPIC:    iot/#
+      DB_HOST:       timescaledb
+      DB_NAME:       iot
+      DB_USER:       iot
+      DB_PASSWORD:   iot
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+      mosquitto:
+        condition: service_started
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_INSTALL_PLUGINS: ""
+    volumes:
+      - ./output/grafana/provisioning:/etc/grafana/provisioning
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+
+volumes:
+  timescale_data:
+  grafana_data:
