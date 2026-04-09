@@ -7,8 +7,9 @@ Uso:
 
 import argparse
 import csv
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import psycopg2
+from psycopg2.extras import execute_values
 
 DB_HOST     = "localhost"
 DB_PORT     = 5432
@@ -22,6 +23,8 @@ def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("--csv", required=True, help="Path al archivo CSV")
     p.add_argument("--device", default=DEVICE_ID, help="device_id (default: raspi)")
+    p.add_argument("--utc-offset", type=float, default=-3,
+                   help="UTC offset de los timestamps del CSV (ej: -3 para ART). Default: -3 (ART)")
     return p.parse_args()
 
 def main():
@@ -33,6 +36,8 @@ def main():
     )
     conn.autocommit = True
     cur = conn.cursor()
+
+    tz = timezone(timedelta(hours=args.utc_offset))
 
     rows = []
     skipped = 0
@@ -51,7 +56,7 @@ def main():
             if len(raw_ts) > 10 and raw_ts[:4] == raw_ts[4:8] and raw_ts[:4].isdigit():
                 raw_ts = raw_ts[4:]
             try:
-                ts    = datetime.strptime(raw_ts, "%Y-%m-%d %H:%M:%S")
+                ts    = datetime.strptime(raw_ts, "%Y-%m-%d %H:%M:%S").replace(tzinfo=tz)
                 value = float(parts[1].strip())
                 rows.append((ts, args.device, METRIC, value))
             except (ValueError, IndexError) as e:
@@ -62,13 +67,19 @@ def main():
         print("No rows to import.")
         return
 
-    cur.executemany(
-        "INSERT INTO sensor_data (time, device_id, metric, value) VALUES (%s, %s, %s, %s) ON CONFLICT DO NOTHING",
-        rows
-    )
-    print(f"Imported {len(rows)} rows from {args.csv}" + (f" ({skipped} skipped)" if skipped else ""))
-    cur.close()
-    conn.close()
+    total = 0
+    chunk_size = 5000
+    for i in range(0, len(rows), chunk_size):
+        chunk = rows[i:i+chunk_size]
+        execute_values(
+            cur,
+            "INSERT INTO sensor_data (time, device_id, metric, value) VALUES %s ON CONFLICT DO NOTHING",
+            chunk,
+            page_size=100
+        )
+        total += len(chunk)
+        print(f"Imported {total}/{len(rows)} rows...")
+    print(f"Done. {total} rows from {args.csv}")
 
 if __name__ == "__main__":
     main()
