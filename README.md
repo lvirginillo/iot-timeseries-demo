@@ -15,6 +15,7 @@ Todo el stack corre con un solo comando usando Docker.
 | `input/` | Python + paho-mqtt | Escucha mensajes MQTT e inserta en la DB |
 | `source/` | TimescaleDB (PostgreSQL) | Almacena series temporales |
 | `output/` | Grafana | Visualización con dashboard precargado |
+| `simulator/` | Python | Simula el sensor sin necesidad de hardware externo |
 | Broker | Eclipse Mosquitto | Recibe los mensajes del microcontrolador |
 
 ---
@@ -98,9 +99,47 @@ mosquitto_pub -h localhost -t "iot/esp01/temperature" \
 
 ---
 
+## Simulator — probar sin microcontrolador ni sensor real
+
+El directorio `simulator/` permite usar el proyecto completo sin necesidad de hardware externo.
+
+### Requisitos
+
+```bash
+pip install -r requirements.txt
+```
+
+### sensor.py — publicar datos en tiempo real
+
+En este ejemplo, lee la temperatura de CPU de una Raspberry Pi y la publica por MQTT cada N segundos, cumpliendo el mismo rol que un dispositivo externo.
+
+```bash
+python simulator/sensor.py
+# opciones:
+python simulator/sensor.py --broker localhost --interval 10 --device raspi
+```
+
+### import_csv.py — cargar historial desde CSV
+
+En este caso, como ya tenia datos historicos, cargamos un archivo CSV con las lecturas directamente en TimescaleDB, sin pasar por MQTT. Útil para poblar el dashboard con datos reales desde el primer arranque, evitando tener que esperar la visualizacion final solo con datos nuevos.
+
+Formato esperado del CSV:
+```
+2025-10-21 23:22:30, 40.4
+2025-10-21 23:25:01, 40.8
+```
+
+```bash
+python simulator/import_csv.py --csv /ruta/al/archivo.csv
+# opciones:
+python simulator/import_csv.py --csv datos.csv --device mi-sensor
+```
+
+---
+
 ## Visualización en Grafana
 
-1. Abrí http://localhost:3000
+1. Abrí http://localhost:3000 (o la IP del servidor)
 2. Login: `admin` / `admin`
 3. El dashboard **IoT Sensor Data** ya está precargado
 
@@ -120,11 +159,15 @@ iot-timeseries-demo/
 ├── input/
 │   ├── mqtt_listener.py     # suscribe al broker e inserta en TimescaleDB
 │   └── Dockerfile
+├── simulator/
+│   ├── sensor.py            # publica temperatura de CPU por MQTT (reemplaza el hardware)
+│   └── import_csv.py        # carga historial CSV directo a TimescaleDB
 ├── source/
 │   └── init.sql             # crea la hypertable y los índices
 ├── output/
 │   └── grafana/
 │       └── provisioning/    # datasource + dashboard precargados
+├── requirements.txt         # dependencias para simulator/
 ├── mosquitto.conf           # config del broker (anónimo para demo)
 ├── docker-compose.yml
 └── README.md
