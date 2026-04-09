@@ -2,6 +2,7 @@ apiVersion: 1
 
 datasources:
   - name: TimescaleDB
+    uid: timescaledb
     type: postgres
     url: timescaledb:5432
     database: iot
@@ -12,5 +13,6 @@ datasources:
       sslmode: disable
       postgresVersion: 1500
       timescaledb: true
+      database: iot
     isDefault: true
     editable: true

@@ -4,29 +4,33 @@
   "schemaVersion": 38,
   "version": 1,
   "refresh": "5s",
-  "time": { "from": "now-30m", "to": "now" },
+  "time": { "from": "now-6M", "to": "now" },
   "panels": [
     {
       "id": 1,
       "title": "Sensor values over time",
       "type": "timeseries",
       "gridPos": { "x": 0, "y": 0, "w": 24, "h": 10 },
-      "datasource": { "type": "postgres", "uid": "${DS_TIMESCALEDB}" },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "timescaledb" },
       "targets": [
         {
-          "rawSql": "SELECT time, value, device_id || ' / ' || metric AS metric FROM sensor_data WHERE $__timeFilter(time) ORDER BY time",
+          "refId": "A",
+          "rawQuery": true,
+          "rawSql": "SELECT time_bucket('$__interval', time) AS time, AVG(value) AS value, device_id || ' / ' || metric AS metric FROM sensor_data WHERE $__timeFilter(time) GROUP BY 1, device_id, metric ORDER BY 1",
           "format": "time_series"
         }
       ]
     },
     {
       "id": 2,
-      "title": "Messages received (last 30 min)",
+      "title": "Messages received (selected range)",
       "type": "stat",
       "gridPos": { "x": 0, "y": 10, "w": 6, "h": 4 },
-      "datasource": { "type": "postgres", "uid": "${DS_TIMESCALEDB}" },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "timescaledb" },
       "targets": [
         {
+          "refId": "A",
+          "rawQuery": true,
           "rawSql": "SELECT COUNT(*) FROM sensor_data WHERE $__timeFilter(time)",
           "format": "table"
         }
@@ -37,21 +41,15 @@
       "title": "Avg interval between messages (seconds)",
       "type": "stat",
       "gridPos": { "x": 6, "y": 10, "w": 6, "h": 4 },
-      "datasource": { "type": "postgres", "uid": "${DS_TIMESCALEDB}" },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "timescaledb" },
       "targets": [
         {
+          "refId": "A",
+          "rawQuery": true,
           "rawSql": "SELECT ROUND(EXTRACT(EPOCH FROM (MAX(time) - MIN(time))) / NULLIF(COUNT(*) - 1, 0)) AS avg_interval_sec FROM sensor_data WHERE $__timeFilter(time)",
           "format": "table"
         }
       ]
-    }
-  ],
-  "__inputs": [
-    {
-      "name": "DS_TIMESCALEDB",
-      "type": "datasource",
-      "pluginId": "postgres",
-      "value": "TimescaleDB"
     }
   ]
 }
