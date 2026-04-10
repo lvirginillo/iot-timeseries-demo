@@ -109,9 +109,29 @@ El directorio `simulator/` permite usar el proyecto completo sin necesidad de ha
 pip install -r requirements.txt
 ```
 
-### sensor.py — publicar datos en tiempo real
+### multi_device.py — simular múltiples dispositivos (recomendado)
 
-En este ejemplo, lee la temperatura de CPU de una Raspberry Pi y la publica por MQTT cada N segundos, cumpliendo el mismo rol que un dispositivo externo.
+Simula 3 dispositivos ESP32 publicando 4 métricas cada uno por MQTT: temperatura de CPU, uso de CPU, humedad y uso de memoria. Los valores siguen patrones sinusoidales con ruido para imitar lecturas reales.
+
+```bash
+python simulator/multi_device.py
+# opciones:
+python simulator/multi_device.py --broker localhost --interval 5
+python simulator/multi_device.py --devices esp32-01,esp32-02,esp32-03 --interval 3
+```
+
+Métricas publicadas por dispositivo:
+
+| Métrica | Topic MQTT | Rango |
+|---------|-----------|-------|
+| `cpu_temp` | `iot/<device>/cpu_temp` | 30–90 °C |
+| `cpu_usage` | `iot/<device>/cpu_usage` | 1–99 % |
+| `humidity` | `iot/<device>/humidity` | 15–95 % |
+| `memory_pct` | `iot/<device>/memory_pct` | 20–95 % |
+
+### sensor.py — leer temperatura real de una Raspberry Pi
+
+Lee la temperatura de CPU de la Raspberry Pi y la publica por MQTT cada N segundos, cumpliendo el mismo rol que un dispositivo externo.
 
 ```bash
 python simulator/sensor.py
@@ -121,7 +141,7 @@ python simulator/sensor.py --broker localhost --interval 10 --device raspi
 
 ### import_csv.py — cargar historial desde CSV
 
-En este caso, como ya tenia datos historicos, cargamos un archivo CSV con las lecturas directamente en TimescaleDB, sin pasar por MQTT. Útil para poblar el dashboard con datos reales desde el primer arranque, evitando tener que esperar la visualizacion final solo con datos nuevos.
+Carga un archivo CSV con lecturas directamente en TimescaleDB, sin pasar por MQTT. Útil para poblar el dashboard con datos históricos desde el primer arranque.
 
 Formato esperado del CSV:
 ```
@@ -143,12 +163,21 @@ python simulator/import_csv.py --csv datos.csv --device mi-sensor
 2. Login: `admin` / `admin`
 3. El dashboard **IoT Sensor Data** ya está precargado
 
-Incluye:
-- Serie temporal de todos los valores recibidos
-- Contador de mensajes en la última media hora
-- Intervalo promedio entre mensajes
+El dashboard incluye:
 
-Para agregar tus propias métricas, editá el dashboard o creá uno nuevo usando el datasource **TimescaleDB** que ya está configurado.
+| Panel | Tipo | Descripción |
+|-------|------|-------------|
+| Temperatura CPU — Raspberry Pi | Serie temporal | Lecturas de `sensor.py` separadas del resto |
+| Temperatura CPU — ESP32s | Serie temporal | Lecturas simuladas por `multi_device.py` |
+| Mensajes recibidos | Stat | Total de registros en el rango seleccionado |
+| Intervalo promedio entre mensajes | Stat | Cadencia de publicación en segundos |
+| Dispositivos activos (últ. 5 min) | Stat | Cantidad de devices con datos recientes |
+| Temp CPU último / mínima / máxima | Stat | Resumen rápido con umbrales de color |
+| Temperatura / CPU / Humedad por dispositivo | Gauge | Valor actual por device con escala verde→rojo |
+| Uso de CPU / Humedad | Serie temporal | Evolución en el tiempo por dispositivo |
+| Uso de memoria | Serie temporal | Con gradiente de relleno por dispositivo |
+
+Para agregar tus propias métricas, publicá en `iot/<device_id>/<nueva_metrica>` y editá el dashboard usando el datasource **TimescaleDB** que ya está configurado.
 
 ---
 
@@ -160,7 +189,8 @@ iot-timeseries-demo/
 │   ├── mqtt_listener.py     # suscribe al broker e inserta en TimescaleDB
 │   └── Dockerfile
 ├── simulator/
-│   ├── sensor.py            # publica temperatura de CPU por MQTT (reemplaza el hardware)
+│   ├── multi_device.py      # simula múltiples ESP32 con 4 métricas cada uno
+│   ├── sensor.py            # publica temperatura de CPU real (Raspberry Pi)
 │   └── import_csv.py        # carga historial CSV directo a TimescaleDB
 ├── source/
 │   └── init.sql             # crea la hypertable y los índices

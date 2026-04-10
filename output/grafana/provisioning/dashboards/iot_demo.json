@@ -2,31 +2,97 @@
   "title": "IoT Sensor Data",
   "uid": "iot-demo",
   "schemaVersion": 38,
-  "version": 1,
+  "version": 2,
   "refresh": "5s",
-  "time": { "from": "now-6M", "to": "now" },
+  "time": { "from": "now-1h", "to": "now" },
   "panels": [
+
     {
       "id": 1,
-      "title": "Sensor values over time",
+      "title": "Temperatura CPU — Raspberry Pi",
       "type": "timeseries",
-      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 10 },
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 8 },
       "datasource": { "type": "grafana-postgresql-datasource", "uid": "timescaledb" },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "none" },
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "min", "max", "mean"] }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "custom": { "lineWidth": 2, "fillOpacity": 10 },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 60 },
+              { "color": "red", "value": 75 }
+            ]
+          }
+        }
+      },
       "targets": [
         {
           "refId": "A",
           "rawQuery": true,
-          "rawSql": "SELECT time_bucket('$__interval', time) AS time, AVG(value) AS value, device_id || ' / ' || metric AS metric FROM sensor_data WHERE $__timeFilter(time) GROUP BY 1, device_id, metric ORDER BY 1",
+          "rawSql": "SELECT time_bucket('$__interval', time) AS time, device_id AS metric, AVG(value) AS value FROM sensor_data WHERE metric = 'cpu_temp' AND device_id = 'raspi' AND $__timeFilter(time) GROUP BY 1, device_id ORDER BY 1",
           "format": "time_series"
         }
       ]
     },
+
+    {
+      "id": 14,
+      "title": "Temperatura CPU — ESP32s",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 8, "w": 24, "h": 8 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "timescaledb" },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "none" },
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "min", "max", "mean"] }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "custom": { "lineWidth": 2, "fillOpacity": 10 },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 60 },
+              { "color": "red", "value": 75 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "rawSql": "SELECT time_bucket('$__interval', time) AS time, device_id AS metric, AVG(value) AS value FROM sensor_data WHERE metric = 'cpu_temp' AND device_id != 'raspi' AND $__timeFilter(time) GROUP BY 1, device_id ORDER BY 1",
+          "format": "time_series"
+        }
+      ]
+    },
+
     {
       "id": 2,
-      "title": "Messages received (selected range)",
+      "title": "Mensajes recibidos",
       "type": "stat",
-      "gridPos": { "x": 0, "y": 10, "w": 6, "h": 4 },
+      "gridPos": { "x": 0, "y": 16, "w": 4, "h": 4 },
       "datasource": { "type": "grafana-postgresql-datasource", "uid": "timescaledb" },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "blue" },
+          "unit": "short"
+        }
+      },
       "targets": [
         {
           "refId": "A",
@@ -36,20 +102,378 @@
         }
       ]
     },
+
     {
       "id": 3,
-      "title": "Avg interval between messages (seconds)",
+      "title": "Intervalo promedio entre mensajes (s)",
       "type": "stat",
-      "gridPos": { "x": 6, "y": 10, "w": 6, "h": 4 },
+      "gridPos": { "x": 4, "y": 16, "w": 4, "h": 4 },
       "datasource": { "type": "grafana-postgresql-datasource", "uid": "timescaledb" },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "purple" },
+          "unit": "s"
+        }
+      },
       "targets": [
         {
           "refId": "A",
           "rawQuery": true,
-          "rawSql": "SELECT ROUND(EXTRACT(EPOCH FROM (MAX(time) - MIN(time))) / NULLIF(COUNT(*) - 1, 0)) AS avg_interval_sec FROM sensor_data WHERE $__timeFilter(time)",
+          "rawSql": "SELECT ROUND(EXTRACT(EPOCH FROM (MAX(time) - MIN(time))) / NULLIF(COUNT(*) - 1, 0)) FROM sensor_data WHERE $__timeFilter(time)",
           "format": "table"
         }
       ]
+    },
+
+    {
+      "id": 4,
+      "title": "Dispositivos activos (últ. 5 min)",
+      "type": "stat",
+      "gridPos": { "x": 8, "y": 16, "w": 4, "h": 4 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "timescaledb" },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "green" },
+          "unit": "short"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "rawSql": "SELECT COUNT(DISTINCT device_id) FROM sensor_data WHERE time > NOW() - INTERVAL '5 minutes'",
+          "format": "table"
+        }
+      ]
+    },
+
+    {
+      "id": 5,
+      "title": "Temp CPU — último valor",
+      "type": "stat",
+      "gridPos": { "x": 12, "y": 16, "w": 4, "h": 4 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "timescaledb" },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 60 },
+              { "color": "red", "value": 75 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "rawSql": "SELECT last(value, time) FROM sensor_data WHERE metric = 'cpu_temp' AND $__timeFilter(time)",
+          "format": "table"
+        }
+      ]
+    },
+
+    {
+      "id": 6,
+      "title": "Temp CPU — mínima",
+      "type": "stat",
+      "gridPos": { "x": 16, "y": 16, "w": 4, "h": 4 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "timescaledb" },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "color": { "mode": "fixed", "fixedColor": "green" }
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "rawSql": "SELECT MIN(value) FROM sensor_data WHERE metric = 'cpu_temp' AND $__timeFilter(time)",
+          "format": "table"
+        }
+      ]
+    },
+
+    {
+      "id": 7,
+      "title": "Temp CPU — máxima",
+      "type": "stat",
+      "gridPos": { "x": 20, "y": 16, "w": 4, "h": 4 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "timescaledb" },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 60 },
+              { "color": "red", "value": 75 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "rawSql": "SELECT MAX(value) FROM sensor_data WHERE metric = 'cpu_temp' AND $__timeFilter(time)",
+          "format": "table"
+        }
+      ]
+    },
+
+    {
+      "id": 8,
+      "title": "Temperatura CPU por dispositivo (gauge)",
+      "type": "gauge",
+      "gridPos": { "x": 0, "y": 20, "w": 8, "h": 8 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "timescaledb" },
+      "options": {
+        "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
+        "orientation": "auto",
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "min": 30,
+          "max": 90,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 60 },
+              { "color": "red", "value": 75 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "rawSql": "SELECT time_bucket('$__interval', time) AS time, device_id AS metric, AVG(value) AS value FROM sensor_data WHERE metric = 'cpu_temp' AND $__timeFilter(time) GROUP BY 1, device_id ORDER BY 1",
+          "format": "time_series"
+        }
+      ]
+    },
+
+    {
+      "id": 9,
+      "title": "Uso de CPU por dispositivo (gauge)",
+      "type": "gauge",
+      "gridPos": { "x": 8, "y": 20, "w": 8, "h": 8 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "timescaledb" },
+      "options": {
+        "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
+        "orientation": "auto",
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 60 },
+              { "color": "red", "value": 85 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "rawSql": "SELECT time_bucket('$__interval', time) AS time, device_id AS metric, AVG(value) AS value FROM sensor_data WHERE metric = 'cpu_usage' AND $__timeFilter(time) GROUP BY 1, device_id ORDER BY 1",
+          "format": "time_series"
+        }
+      ]
+    },
+
+    {
+      "id": 10,
+      "title": "Humedad por dispositivo (gauge)",
+      "type": "gauge",
+      "gridPos": { "x": 16, "y": 20, "w": 8, "h": 8 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "timescaledb" },
+      "options": {
+        "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
+        "orientation": "auto",
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "humidity",
+          "min": 0,
+          "max": 100,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "blue", "value": null },
+              { "color": "green", "value": 30 },
+              { "color": "yellow", "value": 70 },
+              { "color": "red", "value": 85 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "rawSql": "SELECT time_bucket('$__interval', time) AS time, device_id AS metric, AVG(value) AS value FROM sensor_data WHERE metric = 'humidity' AND $__timeFilter(time) GROUP BY 1, device_id ORDER BY 1",
+          "format": "time_series"
+        }
+      ]
+    },
+
+    {
+      "id": 11,
+      "title": "Uso de CPU por dispositivo",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 28, "w": 12, "h": 8 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "timescaledb" },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "none" },
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "mean", "max"] }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "custom": { "lineWidth": 2, "fillOpacity": 15 },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 60 },
+              { "color": "red", "value": 85 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "rawSql": "SELECT time_bucket('$__interval', time) AS time, device_id AS metric, AVG(value) AS value FROM sensor_data WHERE metric = 'cpu_usage' AND $__timeFilter(time) GROUP BY 1, device_id ORDER BY 1",
+          "format": "time_series"
+        }
+      ]
+    },
+
+    {
+      "id": 12,
+      "title": "Humedad por dispositivo",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 28, "w": 12, "h": 8 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "timescaledb" },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "none" },
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "mean", "min", "max"] }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "humidity",
+          "min": 0,
+          "max": 100,
+          "custom": { "lineWidth": 2, "fillOpacity": 15 }
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "rawSql": "SELECT time_bucket('$__interval', time) AS time, device_id AS metric, AVG(value) AS value FROM sensor_data WHERE metric = 'humidity' AND $__timeFilter(time) GROUP BY 1, device_id ORDER BY 1",
+          "format": "time_series"
+        }
+      ]
+    },
+
+    {
+      "id": 13,
+      "title": "Uso de memoria por dispositivo",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 36, "w": 24, "h": 8 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "timescaledb" },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "none" },
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "mean", "max"] }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "custom": { "lineWidth": 2, "fillOpacity": 20, "gradientMode": "opacity" },
+          "color": { "mode": "palette-classic" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 70 },
+              { "color": "red", "value": 85 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "rawSql": "SELECT time_bucket('$__interval', time) AS time, device_id AS metric, AVG(value) AS value FROM sensor_data WHERE metric = 'memory_pct' AND $__timeFilter(time) GROUP BY 1, device_id ORDER BY 1",
+          "format": "time_series"
+        }
+      ]
     }
+
   ]
 }
