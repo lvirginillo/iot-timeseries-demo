@@ -1,6 +1,6 @@
 # iot-timeseries-demo
 
-Demo stack TimescaleDB - Grafana
+Demo de un stack de monitoreo IoT en tiempo real. Los microcontroladores publican sus métricas por MQTT, un listener las persiste en TimescaleDB y Grafana las muestra en vivo. Actualmente lo uso para monitorear variables de una Raspberry Pi, pero el stack no está atado a ningún hardware en particular — podés conectar varios ESP32, Arduinos o cualquier dispositivo que hable MQTT en simultáneo, sin tocar nada del backend.
 
 **Microcontrolador → MQTT → TimescaleDB → Grafana**
 
