@@ -217,6 +217,12 @@ iot-timeseries-demo/
 
 ---
 
+## Imagenes de las pruebas
+
+<img width="1314" height="538" alt="a serror" src="https://github.com/user-attachments/assets/23b32d66-2999-4ea7-9bc4-49614df7dd1d" />
+
+<img width="1291" height="630" alt="1 28 K" src="https://github.com/user-attachments/assets/8b11090e-5c3f-4b55-9b69-00b7a3c8ad53" />
+
 ## Licencia
 
 MIT
